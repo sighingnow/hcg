@@ -1,19 +1,25 @@
 module GL.WithGL
     ( withGL
     , createVBO
+    , makeProg
     , module GL.GLEnv
     ) where
 
-import           Control.Concurrent
-import           Control.Monad
-import qualified Data.Vector.Storable  as V
+import           Control.Concurrent       ( threadDelay )
+import           Control.Monad            ( liftM2, unless, when )
+import           Control.Monad.IO.Class   ( MonadIO(..), liftIO )
+import           Control.Monad.Trans.Cont ( ContT(..), evalContT )
+import qualified Data.Vector.Storable     as V
+import qualified Data.ByteString          as B
+import           Data.Bits                ( (.|.) )
 
 import           Foreign.Ptr
-import           Foreign.Marshal.Alloc
+import           Foreign.Marshal.Alloc    ( alloca, allocaBytes )
+import           Foreign.Marshal.Utils    ( with )
 import           Foreign.Storable
 
 import           Graphics.GL
-import qualified Graphics.UI.GLFW      as W
+import qualified Graphics.UI.GLFW         as W
 
 import           GL.GLEnv
 
@@ -51,7 +57,7 @@ withGL w h title env render =
 
 mainLoop :: W.Window -> (GLEnv -> IO ()) -> GLEnv -> IO ()
 mainLoop win render env = do
-    glClear GL_COLOR_BUFFER_BIT
+    glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
     render env
 
     glFlush
@@ -93,3 +99,43 @@ createVBO vertices = do
     V.unsafeWith vertices $
         \p -> glBufferData GL_ARRAY_BUFFER (fromIntegral vsize) (castPtr p) GL_STATIC_DRAW
     return vbo'
+
+peekf :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m a
+peekf f = liftIO . alloca $ liftM2 (>>) f peek
+
+makeProg :: B.ByteString -> B.ByteString -> IO GLuint
+makeProg vstext fstext = do
+    prog <- glCreateProgram
+    vs <- loadShader GL_VERTEX_SHADER vstext
+    fs <- loadShader GL_FRAGMENT_SHADER fstext
+    glAttachShader prog vs
+    glAttachShader prog fs
+    glLinkProgram prog
+    status <- peekf $ glGetProgramiv prog GL_LINK_STATUS
+    when (status == GL_FALSE) $ do
+        len <- peekf $ glGetProgramiv prog GL_INFO_LOG_LENGTH
+        allocaBytes (fromIntegral len) $
+            \buf -> do
+                glGetProgramInfoLog prog len nullPtr buf
+                B.putStr =<< B.packCStringLen (buf, fromIntegral len)
+    glDeleteShader vs
+    glDeleteShader fs
+    glUseProgram prog >> return prog
+
+loadShader :: GLenum -> B.ByteString -> IO GLuint
+loadShader t code = do
+    shader <- glCreateShader t
+    evalContT $ do
+        (s, l) <- ContT (B.useAsCStringLen code)
+        sp <- ContT (with s)
+        lp <- ContT (with . fromIntegral $ l)
+        liftIO $ glShaderSource shader 1 sp lp
+    glCompileShader shader
+    status <- peekf $ glGetShaderiv shader GL_COMPILE_STATUS
+    when (status == GL_FALSE) $ do
+        len <- peekf $ glGetShaderiv shader GL_INFO_LOG_LENGTH
+        allocaBytes (fromIntegral len) $
+            \buf -> do
+                glGetShaderInfoLog shader len nullPtr buf
+                B.putStr =<< B.packCStringLen (buf, fromIntegral len)
+    return $ if status == GL_TRUE then shader else undefined
