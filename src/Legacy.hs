@@ -2,7 +2,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Graphics.GL
-import           Graphics.GL.Compatibility45
+import           Graphics.GL.Compatibility43
 import qualified Graphics.UI.GLFW            as W
 
 import           GL.WithGL

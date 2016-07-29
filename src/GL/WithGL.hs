@@ -1,7 +1,10 @@
 module GL.WithGL
     ( withGL
+    , createIBO
+    , createVAO
     , createVBO
     , makeProg
+    , locateUniform
     , module GL.GLEnv
     ) where
 
@@ -10,9 +13,12 @@ import           Control.Monad            ( liftM2, unless, when )
 import           Control.Monad.IO.Class   ( MonadIO(..), liftIO )
 import           Control.Monad.Trans.Cont ( ContT(..), evalContT )
 import qualified Data.Vector.Storable     as V
-import qualified Data.ByteString          as B
+import qualified Data.Text                as T
+import qualified Data.Text.Foreign           as T
+import qualified Data.Text.IO                as T
 import           Data.Bits                ( (.|.) )
 
+import           Foreign.C.String         ( withCString )
 import           Foreign.Ptr
 import           Foreign.Marshal.Alloc    ( alloca, allocaBytes )
 import           Foreign.Marshal.Utils    ( with )
@@ -32,6 +38,8 @@ withGL :: Int -- ^ w
 withGL w h title env render =
     W.init >>=
         \r -> when r $ do
+            W.windowHint $ W.WindowHint'ClientAPI W.ClientAPI'OpenGL
+            W.windowHint $ W.WindowHint'OpenGLDebugContext True
             window <- W.createWindow w h title Nothing Nothing
             case window of
                 Just win -> do
@@ -46,12 +54,12 @@ withGL w h title env render =
                 Nothing -> putStrLn "Can't create GL window."
             W.terminate >> putStrLn "Normal termination."
   where
-    errorCallback e s = print $ concat [ show e, ": ", s ]
-    closeCallback _ = print "Window are closing."
+    errorCallback e s = putStrLn $ concat ["callback: ", show e, ": ", s ]
+    closeCallback _ = putStrLn "callback: Window are closing."
     focusCallback _ W.FocusState'Focused =
-        print "Mouse focused"
+        putStrLn "callback: Mouse focused"
     focusCallback _ W.FocusState'Defocused =
-        print "Mouse defocused"
+        putStrLn "callback: Mouse defocused"
     keyCallback win key _ action _ =
         when (key == W.Key'Escape && action == W.KeyState'Pressed) $ W.setWindowShouldClose win True
 
@@ -62,7 +70,7 @@ mainLoop win render env = do
 
     glFlush
     W.swapBuffers win
-    handleError
+    -- handleError
     W.pollEvents
 
     threadDelay 10000
@@ -90,20 +98,43 @@ handleError = do
         "GL_STACK_OVERFLOW"
     disp x = "Unknow error: " ++ show x
 
+-- | Create index buffer object object.
+createIBO :: V.Vector GLuint -> IO GLuint
+createIBO indices = do
+    let isize = fromIntegral $ sizeOf (V.head indices) * V.length indices
+    ibo' <- alloca $
+                \p -> glGenBuffers 1 p >> peek p
+    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo'
+    V.unsafeWith indices $
+        \p -> glBufferData GL_ELEMENT_ARRAY_BUFFER isize (castPtr p) GL_STATIC_DRAW
+    return ibo'
+
+-- | Create vertex array object.
+createVAO :: V.Vector GLfloat -> IO GLuint
+createVAO vertices = do
+    let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
+    vao' <- alloca $
+                \p -> glGenVertexArrays 1 p >> peek p
+    glBindVertexArray vao'
+    V.unsafeWith vertices $
+        \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
+    return vao'
+
+-- | Create vertex buffer object.
 createVBO :: V.Vector GLfloat -> IO GLuint
 createVBO vertices = do
-    let vsize = sizeOf (V.head vertices) * V.length vertices
+    let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
     vbo' <- alloca $
                 \p -> glGenBuffers 1 p >> peek p
     glBindBuffer GL_ARRAY_BUFFER vbo'
     V.unsafeWith vertices $
-        \p -> glBufferData GL_ARRAY_BUFFER (fromIntegral vsize) (castPtr p) GL_STATIC_DRAW
+        \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
     return vbo'
 
 peekf :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m a
 peekf f = liftIO . alloca $ liftM2 (>>) f peek
 
-makeProg :: B.ByteString -> B.ByteString -> IO GLuint
+makeProg :: T.Text -> T.Text -> IO GLuint
 makeProg vstext fstext = do
     prog <- glCreateProgram
     vs <- loadShader GL_VERTEX_SHADER vstext
@@ -117,16 +148,15 @@ makeProg vstext fstext = do
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetProgramInfoLog prog len nullPtr buf
-                B.putStr =<< B.packCStringLen (buf, fromIntegral len)
-    glDeleteShader vs
-    glDeleteShader fs
+                T.putStr =<< T.peekCStringLen (buf, fromIntegral len)
+    mapM_ glDeleteShader [vs, fs]
     glUseProgram prog >> return prog
 
-loadShader :: GLenum -> B.ByteString -> IO GLuint
+loadShader :: GLenum -> T.Text -> IO GLuint
 loadShader t code = do
     shader <- glCreateShader t
     evalContT $ do
-        (s, l) <- ContT (B.useAsCStringLen code)
+        (s, l) <- ContT (T.withCStringLen code)
         sp <- ContT (with s)
         lp <- ContT (with . fromIntegral $ l)
         liftIO $ glShaderSource shader 1 sp lp
@@ -137,5 +167,8 @@ loadShader t code = do
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetShaderInfoLog shader len nullPtr buf
-                B.putStr =<< B.packCStringLen (buf, fromIntegral len)
+                T.putStr =<< T.peekCStringLen (buf, fromIntegral len)
     return $ if status == GL_TRUE then shader else undefined
+
+locateUniform :: GLuint -> String -> IO GLint
+locateUniform prog name = withCString name $ \p -> glGetUniformLocation prog p
