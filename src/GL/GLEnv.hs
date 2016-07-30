@@ -6,6 +6,7 @@ import           Graphics.GL
 
 data GLEnv = GLEnv { vbo      :: GLuint
                    , ibo      :: GLuint
+                   , ibo'     :: GLsizei
                    , distance :: IORef GLfloat
                    , uniform  :: M.HashMap String GLint
                    , s'h      :: IORef GLfloat -- ^ horizontal movement

@@ -102,6 +102,7 @@ createIBO indices = do
     let isize = fromIntegral $ sizeOf (V.head indices) * V.length indices
     ibo' <- alloca $
                 \p -> glGenBuffers 1 p >> peek p
+    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo'
     V.unsafeWith indices $
         \p -> glBufferData GL_ELEMENT_ARRAY_BUFFER isize (castPtr p) GL_STATIC_DRAW
     return ibo'
@@ -123,6 +124,7 @@ createVBO vertices = do
     let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
     vbo' <- alloca $
                 \p -> glGenBuffers 1 p >> peek p
+    glBindBuffer GL_ARRAY_BUFFER vbo'
     V.unsafeWith vertices $
         \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
     return vbo'

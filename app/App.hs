@@ -1,4 +1,3 @@
-{-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -12,12 +11,13 @@ import           Graphics.GL
 import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
 import qualified Data.Text                   as T ( Text )
+import qualified Data.Text.IO                as T ( readFile )
 import qualified Data.HashMap.Strict         as M ( fromList )
 import           Foreign.Storable
 import           Foreign.Marshal.Alloc       ( alloca )
+import           System.IO.Unsafe
 
 import           GL.Math
-import           GL.MissingH.TH
 import           GL.WithGL
 
 main :: IO ()
@@ -36,6 +36,7 @@ makeEnv = do
     mousep <- newIORef (0, 0)
     return GLEnv { vbo = vbo
                  , ibo = ibo
+                 , ibo' = 8
                  , distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
@@ -105,35 +106,18 @@ render GLEnv{..} = do
     mapM_ setUniformMatrix vars
 
     glEnableVertexAttribArray 0
-    glBindBuffer GL_ARRAY_BUFFER vbo
-    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE 0 nullPtr
-    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo
-    glDrawElements GL_LINES 8 GL_UNSIGNED_INT nullPtr
+    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE 0 $ intPtrToPtr 0
+    glDrawElements GL_LINES ibo' GL_UNSIGNED_INT nullPtr
     glDisableVertexAttribArray 0
 
 -- | Vertex shader.
 vstext :: T.Text
-vstext = [raw|
-#version 430
+vstext = unsafePerformIO $ T.readFile "glsl/app/app_vertex.glsl"
 
-layout (location = 0) in vec3 vpos;
-out vec4 color;
-
-uniform mat4 model, view, projection;
-
-void main() {
-    mat4 mvp = projection * view * model;
-    gl_Position = mvp * vec4(vpos, 1.0);
-    color = vec4(clamp(vpos, 0.0, 1.0), 1.0);
-}|]
+{-# NOINLINE vstext #-}
 
 -- | Fragment shader.
 fstext :: T.Text
-fstext = [raw|
-#version 430
+fstext = unsafePerformIO $ T.readFile "glsl/app/app_fragment.glsl"
 
-in vec4 color;
-
-void main() {
-    gl_FragColor = color;
-}|]
+{-# NOINLINE fstext #-}
