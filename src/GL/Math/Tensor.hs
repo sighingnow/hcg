@@ -316,22 +316,27 @@ infix 7 .**
 
 instance Vec V1 where
     V1 x .*. V1 x' = x * x'
+    {-# INLINE (.*.) #-}
 
 instance Vec V2 where
     V2 x1 x2 .*. V2 x1' x2' =
         x1 * x1' + x2 * x2'
+    {-# INLINE (.*.) #-}
 
 instance Vec V3 where
     V3 x1 x2 x3 .*. V3 x1' x2' x3' =
         x1 * x1' + x2 * x2' + x3 * x3'
+    {-# INLINE (.*.) #-}
     V3 x1 x2 x3 .** V3 x1' x2' x3' =
         V3 (x2 * x3' - x2' * x3)
            (x3 * x1' - x3' * x1)
            (x1 * x2' - x1' * x2)
+    {-# INLINE (.**) #-}
 
 instance Vec V4 where
     V4 x1 x2 x3 x4 .*. V4 x1' x2' x3' x4' =
         x1 * x1' + x2 * x2' + x3 * x3' + x4 * x4'
+    {-# INLINE (.*.) #-}
 
 class (Functor t, Foldable t) => Tensor (t :: * -> *) where
     type TElem t :: * -> *
@@ -350,18 +355,26 @@ instance Tensor M33 where
     type TElem M33 = V3
     m1 .* m2 = M33 $ dot (unM33 m1) (unM33 . transpose $ m2)
         where dot m1' m2' = fmap (\v -> fmap (v .*.) m2') m1'
+    {-# INLINE (.*) #-}
     M33 m .-> v = fmap (.*. v) m
+    {-# INLINE (.->) #-}
     transpose (M33 (V3 (V3 x11 x12 x13) (V3 x21 x22 x23) (V3 x31 x32 x33))) =
         M33 $ V3 (V3 x11 x21 x31) (V3 x12 x22 x32) (V3 x13 x23 x33)
+    {-# INLINE transpose #-}
 
 instance Tensor M44 where
     type TElem M44 = V4
     m1 .* m2 = M44 $ dot (unM44 m1) (unM44 . transpose $ m2)
         where dot m1' m2' = fmap (\v -> fmap (v .*.) m2') m1'
+    {-# INLINE (.*) #-}
     M44 m .-> v = fmap (.*. v) m
+    {-# INLINE (.->) #-}
     transpose (M44 (V4 (V4 x11 x12 x13 x14) (V4 x21 x22 x23 x24) (V4 x31 x32 x33 x34) (V4 x41 x42 x43 x44))) =
         M44 $ V4 (V4 x11 x21 x31 x41) (V4 x12 x22 x32 x42) (V4 x13 x23 x33 x43) (V4 x14 x24 x34 x44)
+    {-# INLINE transpose #-}
 
 -- | Norm all value to /0-1/.
 norm :: (Foldable f, Functor f, Floating a, Num (f a)) => f a -> f a
 norm m = fmap (/ (sqrt . sum) (m * m)) m
+
+{-# INLINE norm #-}

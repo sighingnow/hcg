@@ -12,17 +12,68 @@ category:                   Simple
 build-type:                 Simple
 cabal-version:              >=1.10
 
-executable app
-    other-modules:
+Library
+    exposed-modules:
         GL.GLEnv
         GL.Math
         GL.Math.Tensor
         GL.MissingH.TH
         GL.WithGL
     hs-source-dirs:         src
-    main-is:                Main.hs
+    other-modules:
+    build-depends:          base                    >= 4.7 && < 5
+                          , gl                      >= 0.7.8.1
+                          , text                    >= 1.2.2.1
+                          , split                   >= 0.2.3.1
+                          , GLFW-b                  >= 1.4.8.0
+                          , vector                  >= 0.11.0.0
+                          , bytestring              >= 0.10.8.1
+                          , transformers            >= 0.5.2.0
+                          , template-haskell        >= 2.11.0.0
+                          , unordered-containers    >= 0.2.7.0
+    default-language:       Haskell2010
+    ghc-options:            -O2 -Wall -Wextra
+
+executable legacy
+    hs-source-dirs:         app
+    main-is:                Legacy.hs
     default-language:       Haskell2010
     build-depends:          base                    >= 4.7 && < 5
+                          , functional-gl
+                          , gl                      >= 0.7.8.1
+                          , text                    >= 1.2.2.1
+                          , split                   >= 0.2.3.1
+                          , GLFW-b                  >= 1.4.8.0
+                          , vector                  >= 0.11.0.0
+                          , bytestring              >= 0.10.8.1
+                          , transformers            >= 0.5.2.0
+                          , template-haskell        >= 2.11.0.0
+                          , unordered-containers    >= 0.2.7.0
+    ghc-options:            -Wall -Wextra -threaded -rtsopts -with-rtsopts=-N
+
+executable app
+    hs-source-dirs:         app
+    main-is:                App.hs
+    default-language:       Haskell2010
+    build-depends:          base                    >= 4.7 && < 5
+                          , functional-gl
+                          , gl                      >= 0.7.8.1
+                          , text                    >= 1.2.2.1
+                          , split                   >= 0.2.3.1
+                          , GLFW-b                  >= 1.4.8.0
+                          , vector                  >= 0.11.0.0
+                          , bytestring              >= 0.10.8.1
+                          , transformers            >= 0.5.2.0
+                          , template-haskell        >= 2.11.0.0
+                          , unordered-containers    >= 0.2.7.0
+    ghc-options:            -Wall -Wextra -threaded -rtsopts -with-rtsopts=-N
+
+executable plot
+    hs-source-dirs:         app
+    main-is:                Plot.hs
+    default-language:       Haskell2010
+    build-depends:          base                    >= 4.7 && < 5
+                          , functional-gl
                           , gl                      >= 0.7.8.1
                           , text                    >= 1.2.2.1
                           , split                   >= 0.2.3.1

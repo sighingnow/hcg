@@ -1,10 +1,15 @@
 module GL.GLEnv where
 
-import           Graphics.GL
+import           Data.IORef
 import           Data.HashMap.Strict as M
+import           Graphics.GL
 
-data GLEnv = GLEnv { vbo :: GLuint
-                   , ibo :: GLuint
-                   , uniform :: M.HashMap String GLint
+data GLEnv = GLEnv { vbo      :: GLuint
+                   , ibo      :: GLuint
+                   , distance :: IORef GLfloat
+                   , uniform  :: M.HashMap String GLint
+                   , s'h      :: IORef GLfloat -- ^ horizontal movement
+                   , s'v      :: IORef GLfloat -- ^ vertical movement
+                   , mousep   :: IORef (GLfloat, GLfloat) -- ^ cursor position with left mouse button pressed.
                    }
-    deriving (Eq, Show)
+    deriving (Eq)
