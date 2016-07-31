@@ -19,24 +19,32 @@ import           System.IO.Unsafe
 
 import           GL.Math
 import           GL.WithGL
+import           GL.Texture
 
 main :: IO ()
 main = withGL 400 400 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
 makeEnv = do
-    vbo <- createVBO [ 2.5, 2.5, 0, 5, -5, 0, -5, -5, 0, -2.5, 2.5, 0 ]
-    ibo <- createIBO [ 0, 1, 1, 2, 2, 3, 3, 0 ]
+    vbo <- createVBO [ -1, -1, 0.5773, 0, 0
+                     , 0, 1, -1.154, 0.5, 0
+                     , 1, -1, 0.5773, 1, 0
+                     , 0, 1, 0, 0.5, 1]
+    ibo <- createIBO [ 0, 3, 1
+                     , 1, 3, 2
+                     , 2, 3, 0
+                     , 0, 1, 2]
+    tex <- createTex "image/texture.png"
     prog <- makeProg vstext fstext
-    let vars = [ "model", "view", "projection" ]
+    let vars = [ "model", "view", "projection", "sampler"]
     uniforms <- mapM (locateUniform prog) vars
     s'h <- newIORef 0
     s'v <- newIORef 0
-    distance <- newIORef 10
+    distance <- newIORef 1
     mousep <- newIORef (0, 0)
-    return GLEnv { vbo = vbo
-                 , ibo = ibo
-                 , ibo' = 8
+    return GLEnv { vbo' = 5 * (fromIntegral . sizeOf) (undefined :: GLfloat)
+                 , tex' = 3 * (fromIntegral . sizeOf) (undefined :: GLfloat) -- offset of texture
+                 , ibo' = 12
                  , distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
@@ -105,10 +113,15 @@ render GLEnv{..} = do
                     glUniformMatrix4fv (uniform ! name) 1 GL_TYPE (castPtr p)
     mapM_ setUniformMatrix vars
 
+    glUniform1i (uniform ! "sampler") GL_TEXTURE0
+
     glEnableVertexAttribArray 0
-    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE 0 $ intPtrToPtr 0
-    glDrawElements GL_LINES ibo' GL_UNSIGNED_INT nullPtr
+    glEnableVertexAttribArray 1
+    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE vbo' $ intPtrToPtr 0
+    glVertexAttribPointer 1 2 GL_FLOAT GL_FALSE vbo' $ intPtrToPtr (fromIntegral tex')
+    glDrawElements GL_TRIANGLES ibo' GL_UNSIGNED_INT nullPtr
     glDisableVertexAttribArray 0
+    glDisableVertexAttribArray 1
 
 -- | Vertex shader.
 vstext :: T.Text

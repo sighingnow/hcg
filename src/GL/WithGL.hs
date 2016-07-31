@@ -2,8 +2,6 @@
 
 module GL.WithGL
     ( withGL
-    , peekFrom
-    , pokeTo
     , createIBO
     , createVAO
     , createVBO
@@ -14,7 +12,7 @@ module GL.WithGL
     ) where
 
 import           Control.Concurrent       ( threadDelay )
-import           Control.Monad            ( liftM2, unless, when )
+import           Control.Monad            ( unless, when )
 import           Control.Monad.IO.Class   ( MonadIO(..), liftIO )
 import           Control.Monad.Trans.Cont ( ContT(..), evalContT )
 import qualified Data.Vector.Storable     as V
@@ -25,13 +23,14 @@ import           Data.Bits                ( (.|.) )
 
 import           Foreign.C.String         ( withCString )
 import           Foreign.Ptr
-import           Foreign.Marshal.Alloc    ( alloca, allocaBytes )
+import           Foreign.Marshal.Alloc    ( allocaBytes )
 import           Foreign.Marshal.Utils    ( with )
 import           Foreign.Storable
 
 import           Graphics.GL
 import qualified Graphics.UI.GLFW         as W
 
+import           GL.Foreign
 import           GL.GLEnv
 
 withGL :: Int -- ^ w
@@ -66,10 +65,8 @@ mainLoop win render env@GLEnv{..} = do
     glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
     render env
 
-    glFlush
-    W.swapBuffers win
     -- handleError
-    W.pollEvents
+    W.swapBuffers win >> glFlush >> W.pollEvents
 
     threadDelay 10000
     closed <- W.windowShouldClose win
@@ -96,44 +93,35 @@ handleError = do
         "GL_STACK_OVERFLOW"
     disp x = "Unknow error: " ++ show x
 
--- | Create index buffer object object.
+-- | Create index buffer object.
 createIBO :: V.Vector GLuint -> IO GLuint
 createIBO indices = do
     let isize = fromIntegral $ sizeOf (V.head indices) * V.length indices
-    ibo' <- alloca $
-                \p -> glGenBuffers 1 p >> peek p
-    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo'
+    ibo <- peekFrom $ glGenBuffers 1
+    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo
     V.unsafeWith indices $
         \p -> glBufferData GL_ELEMENT_ARRAY_BUFFER isize (castPtr p) GL_STATIC_DRAW
-    return ibo'
+    return ibo
 
 -- | Create vertex array object.
 createVAO :: V.Vector GLfloat -> IO GLuint
 createVAO vertices = do
     let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
-    vao' <- alloca $
-                \p -> glGenVertexArrays 1 p >> peek p
-    glBindVertexArray vao'
+    vao <- peekFrom $ glGenVertexArrays 1
+    glBindVertexArray vao
     V.unsafeWith vertices $
         \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
-    return vao'
+    return vao
 
 -- | Create vertex buffer object.
 createVBO :: V.Vector GLfloat -> IO GLuint
 createVBO vertices = do
     let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
-    vbo' <- alloca $
-                \p -> glGenBuffers 1 p >> peek p
-    glBindBuffer GL_ARRAY_BUFFER vbo'
+    vbo <- peekFrom $ glGenBuffers 1
+    glBindBuffer GL_ARRAY_BUFFER vbo
     V.unsafeWith vertices $
         \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
-    return vbo'
-
-peekFrom :: (MonadIO m, Storable a) => (Ptr a -> IO b) -> m a
-peekFrom f = liftIO . alloca $ liftM2 (>>) f peek
-
-pokeTo :: (MonadIO m, Storable a) => a -> (Ptr a -> IO b) -> m b
-pokeTo v f = liftIO . alloca $ liftM2 (>>) (`poke` v) f
+    return vbo
 
 makeProg :: T.Text -> T.Text -> IO GLuint
 makeProg vstext fstext = do

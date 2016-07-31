@@ -4,8 +4,8 @@ import           Data.IORef
 import           Data.HashMap.Strict as M
 import           Graphics.GL
 
-data GLEnv = GLEnv { vbo      :: GLuint
-                   , ibo      :: GLuint
+data GLEnv = GLEnv { vbo'     :: GLsizei
+                   , tex'     :: GLsizei
                    , ibo'     :: GLsizei
                    , distance :: IORef GLfloat
                    , uniform  :: M.HashMap String GLint

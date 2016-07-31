@@ -1,16 +1,17 @@
 #version 430
 
-layout (location = 0) in vec3 vpos;
+layout (location = 0) in vec3 position;
+layout (location = 1) in vec2 tex;
+
 out vec4 color;
+out vec2 tex_coord;
 
 uniform mat4 model, view, projection;
 
-varying vec4 position;
-
 void main() {
     mat4 mvp = projection * view * model;
-    gl_Position = mvp * vec4(vpos, 1.0);
-    color = vec4(clamp(vpos, 0.0, 1.0), 1.0);
-    position = vec4(vpos, 1.0) + vec4(0.5, 0.5, 0.5, 0.0);
+    gl_Position = mvp * vec4(position, 1.0);
+    color = vec4(clamp(position, 0.0, 1.0), 1.0);
+    tex_coord = tex;
 }
 

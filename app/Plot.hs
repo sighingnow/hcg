@@ -39,9 +39,7 @@ makeEnv = do
     s'v <- newIORef 0
     distance <- newIORef 10
     mousep <- newIORef (0, 0)
-    return GLEnv { vbo = vbo
-                 , ibo = ibo
-                 , ibo' = 6
+    return GLEnv { ibo' = 6
                  , distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
@@ -108,9 +106,7 @@ render GLEnv{..} = do
     mapM_ setUniformMatrix vars
 
     glEnableVertexAttribArray 0
-    glBindBuffer GL_ARRAY_BUFFER vbo
     glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE 0 nullPtr
-    glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo
     glDrawElements GL_LINES ibo' GL_UNSIGNED_INT nullPtr
     glDisableVertexAttribArray 0
 

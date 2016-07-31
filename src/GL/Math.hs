@@ -81,9 +81,9 @@ lookat :: Floating a
        -> M44 a
 lookat e target up = [ u1, u2, u3, -u .*. e, v1, v2, v3, -v .*. e, -n1, -n2, -n3, n .*. e, 0, 0, 0, 1 ]
   where
-    n@(V3 n1 n2 n3) = norm $ target - e -- forward
-    u@(V3 u1 u2 u3) = norm $ n .** up          -- side
-    v@(V3 v1 v2 v3) = norm $ u .** n            -- up
+    n@(V3 n1 n2 n3) = norm $ target - e
+    u@(V3 u1 u2 u3) = norm $ n .** up
+    v@(V3 v1 v2 v3) = norm $ u .** n
 
 {-# INLINE lookat #-}
 

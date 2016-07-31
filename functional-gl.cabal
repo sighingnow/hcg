@@ -14,9 +14,11 @@ cabal-version:              >=1.10
 
 Library
     exposed-modules:
+        GL.Foreign
         GL.GLEnv
         GL.Math
         GL.Math.Tensor
+        GL.Texture
         GL.MissingH.TH
         GL.WithGL
     hs-source-dirs:         src
@@ -27,7 +29,7 @@ Library
                           , split                   >= 0.2.3.1
                           , GLFW-b                  >= 1.4.8.0
                           , vector                  >= 0.11.0.0
-                          , bytestring              >= 0.10.8.1
+                          , JuicyPixels             >= 3.2.7.2
                           , transformers            >= 0.5.2.0
                           , template-haskell        >= 2.11.0.0
                           , unordered-containers    >= 0.2.7.0
@@ -45,7 +47,6 @@ executable legacy
                           , split                   >= 0.2.3.1
                           , GLFW-b                  >= 1.4.8.0
                           , vector                  >= 0.11.0.0
-                          , bytestring              >= 0.10.8.1
                           , transformers            >= 0.5.2.0
                           , template-haskell        >= 2.11.0.0
                           , unordered-containers    >= 0.2.7.0
@@ -62,7 +63,6 @@ executable app
                           , split                   >= 0.2.3.1
                           , GLFW-b                  >= 1.4.8.0
                           , vector                  >= 0.11.0.0
-                          , bytestring              >= 0.10.8.1
                           , transformers            >= 0.5.2.0
                           , template-haskell        >= 2.11.0.0
                           , unordered-containers    >= 0.2.7.0
@@ -79,7 +79,6 @@ executable plot
                           , split                   >= 0.2.3.1
                           , GLFW-b                  >= 1.4.8.0
                           , vector                  >= 0.11.0.0
-                          , bytestring              >= 0.10.8.1
                           , transformers            >= 0.5.2.0
                           , template-haskell        >= 2.11.0.0
                           , unordered-containers    >= 0.2.7.0
