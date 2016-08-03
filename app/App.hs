@@ -3,19 +3,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad
-import           Data.Maybe                  ( fromJust )
 import           Data.HashMap.Strict         ( (!) )
+import qualified Data.HashMap.Strict         as M ( fromList )
 import           Data.IORef
 import           Foreign.Ptr
 import           Graphics.GL
 import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
-import qualified Data.Text                   as T ( Text )
-import qualified Data.Text.IO                as T ( readFile )
-import qualified Data.HashMap.Strict         as M ( fromList )
 import           Foreign.Storable
 import           Foreign.Marshal.Alloc       ( alloca )
-import           System.IO.Unsafe
 
 import           GL.Math
 import           GL.WithGL
@@ -26,25 +22,25 @@ main = withGL 400 400 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
 makeEnv = do
-    vbo <- createVBO [ -1, -1, 0.5773, 0, 0
-                     , 0, 1, -1.154, 0.5, 0
-                     , 1, -1, 0.5773, 1, 0
-                     , 0, 1, 0, 0.5, 1]
-    ibo <- createIBO [ 0, 3, 1
-                     , 1, 3, 2
-                     , 2, 3, 0
-                     , 0, 1, 2]
-    tex <- createTex "image/texture.png"
-    prog <- makeProg vstext fstext
-    let vars = [ "model", "view", "projection", "sampler"]
+    vao <- createVAO
+    vbo <- createVBO [ -1, -1, 0.5773, 0, 0, 0, 1, -1.154, 0.5, 0, 1, -1, 0.5773, 1, 0, 0, 1, 0, 0.5, 1 ]
+    ebo <- createEBO [ 0, 3, 1, 1, 3, 2, 2, 3, 0, 0, 1, 2 ]
+    tex <- createTex "image/texture.png" GL_TEXTURE0
+
+    prog <- makeProg [ ("glsl/app/vertex.glsl", GL_VERTEX_SHADER), ("glsl/app/fragment.glsl", GL_FRAGMENT_SHADER) ]
+
+    let sizef = sizeOf (undefined :: GLfloat)
+
+    setupAttrib prog "position" 3 GL_FLOAT GL_FALSE (5 * sizef) 0
+    setupAttrib prog "tex" 2 GL_FLOAT GL_FALSE (5 * sizef) (3 * sizef)
+
+    let vars = [ "model", "view", "projection", "sampler" ]
     uniforms <- mapM (locateUniform prog) vars
     s'h <- newIORef 0
     s'v <- newIORef 0
     distance <- newIORef 1
     mousep <- newIORef (0, 0)
-    return GLEnv { vbo' = 5 * (fromIntegral . sizeOf) (undefined :: GLfloat)
-                 , tex' = 3 * (fromIntegral . sizeOf) (undefined :: GLfloat) -- offset of texture
-                 , ibo' = 12
+    return GLEnv { ebo' = 12
                  , distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
@@ -87,7 +83,6 @@ binder win GLEnv{..} = do
 
 render :: GLEnv -> IO ()
 render GLEnv{..} = do
-    time <- fmap (fromRational . toRational . fromJust) W.getTime
 
     s'h <- readIORef s'h
     s'v <- readIORef s'v
@@ -99,12 +94,16 @@ render GLEnv{..} = do
         v = V3 x y z .** V3 0 0 1
     let t = translate s'h s'v 10
         s = scale 1 1 1
-        r = rotate (8 * theta) v -- time
+        r = rotate (8 * theta) v
         model = t .* r .* s
 
-    let view = lookat [ 0, 0, 0 ] [ 0, 0, -1 ] [ 0, 1, 0 ]
+    let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]
     let projection = perspect 1.0 (90 / 180 * pi) distance 100 .* translate 0 0 distance
 
+    -- draw
+    glDrawElements GL_TRIANGLES ebo' GL_UNSIGNED_INT nullPtr
+
+    -- setup all uniform variables.
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]
     let setUniformMatrix (name, mat) =
             alloca $
@@ -114,23 +113,3 @@ render GLEnv{..} = do
     mapM_ setUniformMatrix vars
 
     glUniform1i (uniform ! "sampler") GL_TEXTURE0
-
-    glEnableVertexAttribArray 0
-    glEnableVertexAttribArray 1
-    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE vbo' $ intPtrToPtr 0
-    glVertexAttribPointer 1 2 GL_FLOAT GL_FALSE vbo' $ intPtrToPtr (fromIntegral tex')
-    glDrawElements GL_TRIANGLES ibo' GL_UNSIGNED_INT nullPtr
-    glDisableVertexAttribArray 0
-    glDisableVertexAttribArray 1
-
--- | Vertex shader.
-vstext :: T.Text
-vstext = unsafePerformIO $ T.readFile "glsl/app/app_vertex.glsl"
-
-{-# NOINLINE vstext #-}
-
--- | Fragment shader.
-fstext :: T.Text
-fstext = unsafePerformIO $ T.readFile "glsl/app/app_fragment.glsl"
-
-{-# NOINLINE fstext #-}

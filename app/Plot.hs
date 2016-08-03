@@ -3,51 +3,51 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad
-import           Data.Maybe                  ( fromJust )
-import           Data.HashMap.Strict         ( (!) )
+import           Data.Maybe            ( fromJust )
+import           Data.HashMap.Strict   ( (!) )
+import qualified Data.HashMap.Strict   as M ( fromList )
 import           Data.IORef
+import qualified Data.Vector.Storable  as V
 import           Foreign.Ptr
 import           Graphics.GL
-import           Graphics.GL.Compatibility43 ()
-import qualified Graphics.UI.GLFW            as W
-import qualified Data.Text                   as T ( Text )
-import qualified Data.Text.IO                as T ( readFile )
-import qualified Data.HashMap.Strict         as M ( fromList )
+import qualified Graphics.UI.GLFW      as W
 import           Foreign.Storable
-import           Foreign.Marshal.Alloc       ( alloca )
-import           System.IO.Unsafe
+import           Foreign.Marshal.Alloc ( alloca )
 
 import           GL.Math
 import           GL.WithGL
+import qualified GL.Geometric          as G
 
 main :: IO ()
-main = withGL 400 400 "GL Window" makeEnv binder render
+main = withGL 400 300 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
 makeEnv = do
-    vbo <- createVBO [ 0, 1000, 0
-                     , 0, -1000, 0
-                     , 1000, 0, 0
-                     , -1000, 0, 0
-                     , 0, 0, 1000
-                     , 0, 0, -1000]
-    ibo <- createIBO [ 0, 1, 2, 3, 4, 5 ]
-    prog <- makeProg vstext fstext
+    ball <- G.ball (V3 0 0 0) 20
+    vao <- createVAO
+    vbo <- createVBO $ ([ -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20 ] :: V.Vector GLfloat) V.++ ball
+    ebo <- createEBO [ 0, 1, 2, 3, 4, 5 ]
+    prog <- makeProg [ ("glsl/plot/vertex.glsl", GL_VERTEX_SHADER), ("glsl/plot/fragment.glsl", GL_FRAGMENT_SHADER) ]
+
+    setupAttrib prog "position" 3 GL_FLOAT GL_FALSE 0 0
+
     let vars = [ "model", "view", "projection" ]
     uniforms <- mapM (locateUniform prog) vars
     s'h <- newIORef 0
     s'v <- newIORef 0
     distance <- newIORef 10
     mousep <- newIORef (0, 0)
-    return GLEnv { ibo' = 6
+    return GLEnv { ebo' = 6
                  , distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
-                 , mousep = mousep }
+                 , mousep = mousep
+                 }
 
 binder :: W.Window -> GLEnv -> IO ()
 binder win GLEnv{..} = do
+    glClearColor 1.0 1.0 1.0 0
     W.setErrorCallback $ Just errorCallback
     W.setWindowCloseCallback win $ Just closeCallback
     W.setWindowFocusCallback win $ Just focusCallback
@@ -71,11 +71,13 @@ binder win GLEnv{..} = do
             W.Key'Right -> modifyIORef s'h (+ 0.1)
             _ -> putStrLn "callback: unhandled key event, " >> print key
     cursorPosCallback _ x y = do
-            mb <- W.getMouseButton win W.MouseButton'1
-            when (mb == W.MouseButtonState'Pressed) $ writeIORef mousep (x', y')
-        where x' = fromRational . toRational $ (x-200) / 200
-              y' = fromRational . toRational $ (y-200) / 200
-    mouseButtonCallback _ m ms _ = putStrLn "callback: mouse, " >> print m >> print ms
+        mb <- W.getMouseButton win W.MouseButton'1
+        when (mb == W.MouseButtonState'Pressed) $ writeIORef mousep (x', y')
+      where
+        x' = fromRational . toRational $ (x - 200) / 200
+        y' = fromRational . toRational $ (y - 200) / 200
+    mouseButtonCallback _ m ms _ =
+        putStrLn "callback: mouse, " >> print m >> print ms
 
 render :: GLEnv -> IO ()
 render GLEnv{..} = do
@@ -86,16 +88,20 @@ render GLEnv{..} = do
     distance <- readIORef distance
     (x, y) <- readIORef mousep
 
-    let z = sqrt $ 1 - x*x - y*y
+    let z = sqrt $ 1 - x * x - y * y
         theta = acos $ V3 x y z .*. V3 0 0 1
         v = V3 x y z .** V3 0 0 1
-    let t = translate s'h s'v 10
+    let t = translate s'h s'v 0
         s = scale 1 1 1
-        r = rotate theta v -- time
+        r = rotate time [ 1 / 3, 1 / 3, 1 / 3 ] -- rotate theta v -- rotate time [0, 0, -1]
         model = t .* r .* s
 
-    let view = lookat [ 0, 0, 0 ] [ 0, 0, -1 ] [ 0, 1, 0 ]
-    let projection = perspect 1.0 (90 / 180 * pi) distance 100 .* translate 0 0 distance
+    let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]
+    -- let projection = perspect (4 / 3) (pi / 2) 0.001 60
+    let projection = ortho (-30) 30 (-30) 30 (-30) 30
+
+    glDrawArrays GL_TRIANGLE_STRIP 6 40000
+    glDrawElements GL_LINES 6 GL_UNSIGNED_INT nullPtr -- GL_TRIANGLE_STRIP
 
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]
     let setUniformMatrix (name, mat) =
@@ -104,20 +110,3 @@ render GLEnv{..} = do
                     poke p (mat :: M44 GLfloat)
                     glUniformMatrix4fv (uniform ! name) 1 GL_TYPE (castPtr p)
     mapM_ setUniformMatrix vars
-
-    glEnableVertexAttribArray 0
-    glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE 0 nullPtr
-    glDrawElements GL_LINES ibo' GL_UNSIGNED_INT nullPtr
-    glDisableVertexAttribArray 0
-
--- | Vertex shader.
-vstext :: T.Text
-vstext = unsafePerformIO $ T.readFile "glsl/plot/plot_vertex.glsl"
-
-{-# NOINLINE vstext #-}
-
--- | Fragment shader.
-fstext :: T.Text
-fstext = unsafePerformIO $ T.readFile "glsl/plot/plot_fragment.glsl"
-
-{-# NOINLINE fstext #-}

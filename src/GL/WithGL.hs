@@ -1,13 +1,13 @@
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module GL.WithGL
     ( withGL
-    , createIBO
+    , createEBO
     , createVAO
     , createVBO
     , makeProg
+    , setupAttrib
     , locateUniform
-    , locateAttribute
     , module GL.GLEnv
     ) where
 
@@ -17,8 +17,8 @@ import           Control.Monad.IO.Class   ( MonadIO(..), liftIO )
 import           Control.Monad.Trans.Cont ( ContT(..), evalContT )
 import qualified Data.Vector.Storable     as V
 import qualified Data.Text                as T
-import qualified Data.Text.Foreign           as T
-import qualified Data.Text.IO                as T
+import qualified Data.Text.Foreign        as T
+import qualified Data.Text.IO             as T ( putStrLn, readFile )
 import           Data.Bits                ( (.|.) )
 
 import           Foreign.C.String         ( withCString )
@@ -38,18 +38,21 @@ withGL :: Int -- ^ w
        -> String -- ^ title
        -> IO GLEnv -- global env variable, like vbo
        -> (W.Window -> GLEnv -> IO ()) -- ^ binding all event callbacks.
-        -> (GLEnv -> IO ()) -- ^ render of main loop
+       -> (GLEnv -> IO ()) -- ^ render of main loop
        -> IO ()
 withGL w h title env binder render =
     W.init >>=
         \r -> when r $ do
-            W.windowHint $ W.WindowHint'ClientAPI W.ClientAPI'OpenGL
             W.windowHint $ W.WindowHint'OpenGLDebugContext True
+            W.windowHint $ W.WindowHint'ClientAPI W.ClientAPI'OpenGL
+            W.windowHint $ W.WindowHint'ContextVersionMajor 4
+            W.windowHint $ W.WindowHint'ContextVersionMinor 3
+            W.windowHint $ W.WindowHint'OpenGLProfile W.OpenGLProfile'Core
             window <- W.createWindow w h title Nothing Nothing
             case window of
                 Just win -> do
                     W.makeContextCurrent window
-                    glClearColor 0 0 0 0
+                    glClearColor 0.0 0.0 0.0 0
                     glEnable GL_CULL_FACE
                     glEnable GL_DEPTH_TEST
                     glDepthFunc GL_LESS
@@ -66,7 +69,9 @@ mainLoop win render env@GLEnv{..} = do
     render env
 
     -- handleError
-    W.swapBuffers win >> glFlush >> W.pollEvents
+    W.swapBuffers win >>
+        glFlush >>
+        W.pollEvents
 
     threadDelay 10000
     closed <- W.windowShouldClose win
@@ -93,9 +98,9 @@ handleError = do
         "GL_STACK_OVERFLOW"
     disp x = "Unknow error: " ++ show x
 
--- | Create index buffer object.
-createIBO :: V.Vector GLuint -> IO GLuint
-createIBO indices = do
+-- | Create element buffer (index buffer) object.
+createEBO :: V.Vector GLuint -> IO GLuint
+createEBO indices = do
     let isize = fromIntegral $ sizeOf (V.head indices) * V.length indices
     ibo <- peekFrom $ glGenBuffers 1
     glBindBuffer GL_ELEMENT_ARRAY_BUFFER ibo
@@ -104,13 +109,10 @@ createIBO indices = do
     return ibo
 
 -- | Create vertex array object.
-createVAO :: V.Vector GLfloat -> IO GLuint
-createVAO vertices = do
-    let vsize = fromIntegral $ sizeOf (V.head vertices) * V.length vertices
+createVAO :: IO GLuint
+createVAO = do
     vao <- peekFrom $ glGenVertexArrays 1
     glBindVertexArray vao
-    V.unsafeWith vertices $
-        \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
     return vao
 
 -- | Create vertex buffer object.
@@ -123,23 +125,19 @@ createVBO vertices = do
         \p -> glBufferData GL_ARRAY_BUFFER vsize (castPtr p) GL_STATIC_DRAW
     return vbo
 
-makeProg :: T.Text -> T.Text -> IO GLuint
-makeProg vstext fstext = do
+makeProg :: [(FilePath, GLenum)] -> IO GLuint
+makeProg res = do
     prog <- glCreateProgram
-    vs <- makeShader GL_VERTEX_SHADER vstext
-    fs <- makeShader GL_FRAGMENT_SHADER fstext
-    glAttachShader prog vs
-    glAttachShader prog fs
-    glLinkProgram prog
+    shaders <- mapM (\(fp, st) -> T.readFile fp >>= makeShader st) res
+    mapM_ (glAttachShader prog) shaders >> glLinkProgram prog
     status <- peekFrom $ glGetProgramiv prog GL_LINK_STATUS
-    when (status == GL_FALSE) $ do
-        len <- peekFrom $ glGetProgramiv prog GL_INFO_LOG_LENGTH
+    len <- peekFrom $ glGetProgramiv prog GL_INFO_LOG_LENGTH
+    when (len > 0) $
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetProgramInfoLog prog len nullPtr buf
-                T.putStr =<< T.peekCStringLen (buf, fromIntegral len)
-    mapM_ glDeleteShader [vs, fs]
-    glUseProgram prog >> return prog
+                T.putStrLn =<< T.peekCStringLen (buf, fromIntegral len)
+    mapM_ glDeleteShader shaders >> glUseProgram prog >> return prog
 
 makeShader :: GLenum -> T.Text -> IO GLuint
 makeShader t code = do
@@ -151,16 +149,34 @@ makeShader t code = do
         liftIO $ glShaderSource shader 1 sp lp
     glCompileShader shader
     status <- peekFrom $ glGetShaderiv shader GL_COMPILE_STATUS
-    when (status == GL_FALSE) $ do
-        len <- peekFrom $ glGetShaderiv shader GL_INFO_LOG_LENGTH
+    len <- peekFrom $ glGetShaderiv shader GL_INFO_LOG_LENGTH
+    when (len > 0) $
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetShaderInfoLog shader len nullPtr buf
-                T.putStr =<< T.peekCStringLen (buf, fromIntegral len)
+                T.putStrLn =<< T.peekCStringLen (buf, fromIntegral len)
     return $ if status == GL_TRUE then shader else undefined
 
-locateUniform :: GLuint -> String -> IO GLint
-locateUniform prog name = withCString name $ \p -> glGetUniformLocation prog p
+setupAttrib :: GLuint -- ^ shader program object
+            -> String -- ^ name in shader
+            -> GLint -- ^ size
+            -> GLenum -- ^ data type
+            -> GLboolean -- ^ normalized
+            -> Int -- ^ stride
+            -> Int -- ^ offset
+            -> IO ()
+setupAttrib prog name size dt norm stride offset = do
+    loc <- withCString name $ \p -> glGetAttribLocation prog p
+    when (loc >= 0) $ do
+        let loc' = fromIntegral loc
+        glEnableVertexAttribArray loc'
+        glVertexAttribPointer loc' size dt norm (fromIntegral stride) (intPtrToPtr . fromIntegral $ offset)
+        -- glDisableVertexAttribArray loc' -- DO NOT disable it!
+    unless (loc >= 0) $
+        error $ "Failed to get the location of attribute " ++ name
 
-locateAttribute :: GLuint -> String -> IO GLint
-locateAttribute prog name = withCString name $ \p -> glGetAttribLocation prog p
+locateUniform :: GLuint -- ^ shader program object
+              -> String -- ^ name
+              -> IO GLint
+locateUniform prog name =
+    withCString name $ \p -> glGetUniformLocation prog p

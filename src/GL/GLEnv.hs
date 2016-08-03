@@ -4,9 +4,7 @@ import           Data.IORef
 import           Data.HashMap.Strict as M
 import           Graphics.GL
 
-data GLEnv = GLEnv { vbo'     :: GLsizei
-                   , tex'     :: GLsizei
-                   , ibo'     :: GLsizei
+data GLEnv = GLEnv { ebo'     :: GLsizei
                    , distance :: IORef GLfloat
                    , uniform  :: M.HashMap String GLint
                    , s'h      :: IORef GLfloat -- ^ horizontal movement
