@@ -2,6 +2,7 @@
 
 module GL.WithGL
     ( withGL
+    , cast
     , createEBO
     , createVAO
     , createVBO
@@ -13,15 +14,16 @@ module GL.WithGL
 
 import           Control.Concurrent       ( threadDelay )
 import           Control.Monad            ( unless, when )
-import           Control.Monad.IO.Class   ( MonadIO(..), liftIO )
-import           Control.Monad.Trans.Cont ( ContT(..), evalContT )
+import           Control.Monad.Trans.Cont
+import           Control.Monad.IO.Class   ( liftIO )
+import           Data.Maybe               ( fromJust )
 import qualified Data.Vector.Storable     as V
 import qualified Data.Text                as T
 import qualified Data.Text.Foreign        as T
 import qualified Data.Text.IO             as T ( putStrLn, readFile )
 import           Data.Bits                ( (.|.) )
 
-import           Foreign.C.String         ( withCString )
+import           Foreign.C.String         ( withCString, peekCString )
 import           Foreign.Ptr
 import           Foreign.Marshal.Alloc    ( allocaBytes )
 import           Foreign.Marshal.Utils    ( with )
@@ -98,6 +100,10 @@ handleError = do
         "GL_STACK_OVERFLOW"
     disp x = "Unknow error: " ++ show x
 
+-- | Casting between haskell floating type and OpenGL floating type.
+cast :: (Real a, Fractional c) => a -> c
+cast = fromRational . toRational
+
 -- | Create element buffer (index buffer) object.
 createEBO :: V.Vector GLuint -> IO GLuint
 createEBO indices = do
@@ -128,18 +134,18 @@ createVBO vertices = do
 makeProg :: [(FilePath, GLenum)] -> IO GLuint
 makeProg res = do
     prog <- glCreateProgram
-    shaders <- mapM (\(fp, st) -> T.readFile fp >>= makeShader st) res
+    shaders <- mapM (\(fp, st) -> T.readFile fp >>= fmap fromJust . makeShader st) res
     mapM_ (glAttachShader prog) shaders >> glLinkProgram prog
     status <- peekFrom $ glGetProgramiv prog GL_LINK_STATUS
     len <- peekFrom $ glGetProgramiv prog GL_INFO_LOG_LENGTH
-    when (len > 0) $
+    when (status == GL_FALSE || len > 0) $
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetProgramInfoLog prog len nullPtr buf
-                T.putStrLn =<< T.peekCStringLen (buf, fromIntegral len)
+                putStrLn =<< peekCString buf
     mapM_ glDeleteShader shaders >> glUseProgram prog >> return prog
 
-makeShader :: GLenum -> T.Text -> IO GLuint
+makeShader :: GLenum -> T.Text -> IO (Maybe GLuint)
 makeShader t code = do
     shader <- glCreateShader t
     evalContT $ do
@@ -150,12 +156,12 @@ makeShader t code = do
     glCompileShader shader
     status <- peekFrom $ glGetShaderiv shader GL_COMPILE_STATUS
     len <- peekFrom $ glGetShaderiv shader GL_INFO_LOG_LENGTH
-    when (len > 0) $
+    when (status == GL_FALSE || len > 0) $
         allocaBytes (fromIntegral len) $
             \buf -> do
                 glGetShaderInfoLog shader len nullPtr buf
-                T.putStrLn =<< T.peekCStringLen (buf, fromIntegral len)
-    return $ if status == GL_TRUE then shader else undefined
+                putStrLn =<< peekCString buf
+    return $ if status == GL_TRUE then Just shader else Nothing
 
 setupAttrib :: GLuint -- ^ shader program object
             -> String -- ^ name in shader

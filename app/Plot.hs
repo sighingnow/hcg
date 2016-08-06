@@ -93,7 +93,7 @@ render GLEnv{..} = do
         v = V3 x y z .** V3 0 0 1
     let t = translate s'h s'v 0
         s = scale 1 1 1
-        r = rotate time [ 1 / 3, 1 / 3, 1 / 3 ] -- rotate theta v -- rotate time [0, 0, -1]
+        r = rotate theta v
         model = t .* r .* s
 
     let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]

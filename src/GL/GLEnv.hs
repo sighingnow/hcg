@@ -4,11 +4,13 @@ import           Data.IORef
 import           Data.HashMap.Strict as M
 import           Graphics.GL
 
-data GLEnv = GLEnv { ebo'     :: GLsizei
-                   , distance :: IORef GLfloat
-                   , uniform  :: M.HashMap String GLint
-                   , s'h      :: IORef GLfloat -- ^ horizontal movement
-                   , s'v      :: IORef GLfloat -- ^ vertical movement
-                   , mousep   :: IORef (GLfloat, GLfloat) -- ^ cursor position with left mouse button pressed.
+data GLEnv = GLEnv { ebo'       :: GLsizei
+                   , distance   :: IORef GLfloat
+                   , uniform    :: M.HashMap String GLint
+                   , s'h        :: IORef GLfloat -- ^ horizontal movement
+                   , s'v        :: IORef GLfloat -- ^ vertical movement
+                   , mousep     :: IORef (GLfloat, GLfloat) -- ^ cursor position with left mouse button pressed.
+                   , resolution :: IORef (GLfloat, GLfloat, GLsizei, GLsizei) -- ^ window's top, left, width, height
+                   , mouse      :: IORef (GLfloat, GLfloat, GLfloat, GLfloat) -- ^ x, y, click x, click y
                    }
     deriving (Eq)
