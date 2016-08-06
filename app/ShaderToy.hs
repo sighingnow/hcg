@@ -69,7 +69,7 @@ binder win GLEnv{..} = do
               W.MouseButtonState'Pressed -> do
                   (cx, cy) <- W.getCursorPos win
                   modifyIORef' mouse (\(x, y, _, _) -> (x, y, cast cx, cast cy))
-              _ -> modifyIORef mouse (\(x, y, xp, yp) -> (x, y, -1, -1))
+              _ -> modifyIORef' mouse (\(x, y, _, _) -> (x, y, -1, -1))
         | otherwise = return ()
 
 render :: GLEnv -> IO ()
