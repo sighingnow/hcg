@@ -3,69 +3,49 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad
+import           Data.Maybe                  ( fromJust )
 import           Data.HashMap.Strict         ( (!) )
-import qualified Data.HashMap.Strict         as M ( fromList )
 import           Data.IORef
 import           Graphics.GL
 import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
+import qualified Data.HashMap.Strict         as M ( fromList )
 
 import           GL.Foreign
 import           GL.Math
 import           GL.WithGL
 import           GL.Texture
-import           GL.GLSL
 import           GL.Primitive
+import           GL.GLSL
 
 main :: IO ()
 main = withGL 400 400 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
 makeEnv = do
-    p <- createElementWithTex GL_TRIANGLES
-                              [ -1
-                              , -1
-                              , 0.5773
-                              , 0
-                              , 0
-                              , 0
-                              , 1
-                              , -1.154
-                              , 0.5
-                              , 0
-                              , 1
-                              , -1
-                              , 0.5773
-                              , 1
-                              , 0
-                              , 0
-                              , 1
-                              , 0
-                              , 0.5
-                              , 1
-                              ]
-                              [ 0, 3, 1, 1, 3, 2, 2, 3, 0, 0, 1, 2 ]
-                              (0, 12)
+    p1 <- createArray GL_LINES [ -1, 0, 0, 1, 0, 0 ] (0, 2)
+    p2 <- createArray GL_LINES [ 0, -1, 0, 0, 1, 0 ] (0, 2)
+    p3 <- createElement GL_TRIANGLES
+                        [ -0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0 ]
+                        [ 0, 1, 2, 0, 2, 3 ]
+                        (0, 6)
 
-    tex <- createTex "image/texture.png" GL_TEXTURE0
-
-    prog <- program [ ("glsl/app/vertex.glsl", GL_VERTEX_SHADER)
-                    , ("glsl/app/fragment.glsl", GL_FRAGMENT_SHADER)
+    prog <- program [ ("glsl/heart/vertex.glsl", GL_VERTEX_SHADER)
+                    , ("glsl/heart/fragment.glsl", GL_FRAGMENT_SHADER)
                     ]
 
-    let vars = [ "model", "view", "projection", "sampler" ]
+    let vars = [ "model", "view", "projection" ]
     uniforms <- mapM (locateUniform prog) vars
     s'h <- newIORef 0
     s'v <- newIORef 0
     distance <- newIORef 1
     mousep <- newIORef (0, 0)
-    return GLEnv { ebo' = 12
-                 , distance = distance
+    return GLEnv { distance = distance
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
                  , mousep = mousep
-                 , things = [ p ]
+                 , elements = [ p1, p2, p3 ]
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
@@ -103,6 +83,8 @@ binder win GLEnv{..} = do
 
 render :: GLEnv -> IO ()
 render GLEnv{..} = do
+    time <- fmap (cast . fromJust) W.getTime
+
     s'h <- readIORef s'h
     s'v <- readIORef s'v
     distance <- readIORef distance
@@ -113,17 +95,14 @@ render GLEnv{..} = do
         v = V3 x y z .** V3 0 0 1
     let t = translate s'h s'v 10
         s = scale 1 1 1
-        r = rotate (8 * theta) v
+        r = rotate (8 * theta) v -- time
         model = t .* r .* s
 
-    let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]
+    let view = lookat [ 0, 0, 0 ] [ 0, 0, -1 ] [ 0, 1, 0 ]
     let projection = perspect 1.0 (90 / 180 * pi) distance 100 .* translate 0 0 distance
 
-    -- draw
-    mapM_ primitive
-          things
+    mapM_ primitive elements
 
-    -- setup all uniform variables.
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]
     let setUniformMatrix (name, mat) =
             alloca $
@@ -131,5 +110,3 @@ render GLEnv{..} = do
                     poke p (mat :: M44 GLfloat)
                     glUniformMatrix4fv (uniform ! name) 1 GL_TYPE (castPtr p)
     mapM_ setUniformMatrix vars
-
-    glUniform1i (uniform ! "sampler") GL_TEXTURE0

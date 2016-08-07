@@ -3,20 +3,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 import           Control.Monad
-import           Data.Maybe            ( fromJust )
-import           Data.HashMap.Strict   ( (!) )
-import qualified Data.HashMap.Strict   as M ( fromList )
+import           Data.HashMap.Strict ( (!) )
+import qualified Data.HashMap.Strict as M ( fromList )
 import           Data.IORef
-import qualified Data.Vector.Storable  as V
-import           Foreign.Ptr
 import           Graphics.GL
-import qualified Graphics.UI.GLFW      as W
-import           Foreign.Storable
-import           Foreign.Marshal.Alloc ( alloca )
+import qualified Graphics.UI.GLFW    as W
 
+import           GL.Foreign
 import           GL.Math
 import           GL.WithGL
-import qualified GL.Geometric          as G
+import           GL.GLSL
+import           GL.Primitive
+import qualified GL.Geometric        as G
 
 main :: IO ()
 main = withGL 400 300 "GL Window" makeEnv binder render
@@ -24,12 +22,15 @@ main = withGL 400 300 "GL Window" makeEnv binder render
 makeEnv :: IO GLEnv
 makeEnv = do
     ball <- G.ball (V3 0 0 0) 20
-    vao <- createVAO
-    vbo <- createVBO $ ([ -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20 ] :: V.Vector GLfloat) V.++ ball
-    ebo <- createEBO [ 0, 1, 2, 3, 4, 5 ]
-    prog <- makeProg [ ("glsl/plot/vertex.glsl", GL_VERTEX_SHADER), ("glsl/plot/fragment.glsl", GL_FRAGMENT_SHADER) ]
+    p1 <- createElement GL_LINES
+                        [ -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20, 0, 0, 0, -20, 0, 0, 20 ]
+                        [ 0, 1, 2, 3, 4, 5 ]
+                        (0, 6)
+    p2 <- createArray GL_TRIANGLE_STRIP ball (0, 40000)
 
-    setupAttrib prog "position" 3 GL_FLOAT GL_FALSE 0 0
+    prog <- program [ ("glsl/plot/vertex.glsl", GL_VERTEX_SHADER)
+                    , ("glsl/plot/fragment.glsl", GL_FRAGMENT_SHADER)
+                    ]
 
     let vars = [ "model", "view", "projection" ]
     uniforms <- mapM (locateUniform prog) vars
@@ -43,6 +44,7 @@ makeEnv = do
                  , s'h = s'h
                  , s'v = s'v
                  , mousep = mousep
+                 , things = [ p1, p2 ]
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
@@ -81,8 +83,6 @@ binder win GLEnv{..} = do
 
 render :: GLEnv -> IO ()
 render GLEnv{..} = do
-    time <- fmap (fromRational . toRational . fromJust) W.getTime
-
     s'h <- readIORef s'h
     s'v <- readIORef s'v
     distance <- readIORef distance
@@ -100,8 +100,7 @@ render GLEnv{..} = do
     -- let projection = perspect (4 / 3) (pi / 2) 0.001 60
     let projection = ortho (-30) 30 (-30) 30 (-30) 30
 
-    glDrawArrays GL_TRIANGLE_STRIP 6 40000
-    glDrawElements GL_LINES 6 GL_UNSIGNED_INT nullPtr -- GL_TRIANGLE_STRIP
+    mapM_ primitive things
 
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]
     let setUniformMatrix (name, mat) =

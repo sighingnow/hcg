@@ -65,9 +65,9 @@ rotate theta v
     u11 = c + (1 - c) * u1 * u1
     u22 = c + (1 - c) * u2 * u2
     u33 = c + (1 - c) * u3 * u3
-    u12 = (1- c) * u1 * u2
-    u13 = (1- c) * u1 * u3
-    u23 = (1- c) * u2 * u3
+    u12 = (1 - c) * u1 * u2
+    u13 = (1 - c) * u1 * u3
+    u23 = (1 - c) * u2 * u3
 
 {-# INLINE rotate #-}
 
@@ -97,7 +97,23 @@ ortho :: Floating a
       -> a -- ^ near
       -> a -- ^ far
       -> M44 a
-ortho l r b t n f = [ 2 * x, 0, 0, -(r + l) * x, 0, 2 * y, 0, -(t + b) * y, 0, 0, -2 * z, -(f + n) * z, 0, 0, 0, 1 ]
+ortho l r b t n f = [ 2 * x
+                    , 0
+                    , 0
+                    , -(r + l) * x
+                    , 0
+                    , 2 * y
+                    , 0
+                    , -(t + b) * y
+                    , 0
+                    , 0
+                    , -2 * z
+                    , -(f + n) * z
+                    , 0
+                    , 0
+                    , 0
+                    , 1
+                    ]
   where
     x = 1 / (r - l)
     y = 1 / (t - b)
@@ -134,7 +150,23 @@ frustum :: Floating a
         -> a -- ^ near
         -> a -- ^ far
         -> M44 a
-frustum l r b t n f = [ n' / x, 0, x' / x, 0, 0, n' / y, y' / y, 0, 0, 0, -z' / z, -z'' / z, 0, 0, -1, 0 ]
+frustum l r b t n f = [ n' / x
+                      , 0
+                      , x' / x
+                      , 0
+                      , 0
+                      , n' / y
+                      , y' / y
+                      , 0
+                      , 0
+                      , 0
+                      , -z' / z
+                      , -z'' / z
+                      , 0
+                      , 0
+                      , -1
+                      , 0
+                      ]
   where
     n' = 2 * n
     x = r - l

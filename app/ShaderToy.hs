@@ -8,39 +8,50 @@ import           Data.Maybe                  ( fromJust )
 import           Data.HashMap.Strict         ( (!) )
 import qualified Data.HashMap.Strict         as M ( fromList )
 import           Data.IORef
-import           Foreign.Ptr
 import           Graphics.GL
 import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
-import           Foreign.Storable
-import           Foreign.Marshal.Alloc       ( alloca )
 
+import           GL.Foreign
 import           GL.Math
 import           GL.WithGL
 import           GL.Texture
+import           GL.GLSL
+import           GL.Primitive
 
 main :: IO ()
 main = withGL 400 400 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
 makeEnv = do
-    vao <- createVAO
-    vbo <- createVBO [ -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0 ]
-    ebo <- createEBO [ 0, 1, 2, 0, 2, 3 ]
+    p <- createElement GL_TRIANGLES
+                       [ -1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0 ]
+                       [ 0, 1, 2, 0, 2, 3 ]
+                       (0, 6)
 
     createTex "image/tex00.jpg" GL_TEXTURE0
     createTex "image/tex01.jpg" GL_TEXTURE1
 
-    prog <- makeProg [ ("glsl/shadertoy/vertex.glsl", GL_VERTEX_SHADER)
-                     , ("glsl/shadertoy/fragment.glsl", GL_FRAGMENT_SHADER)
-                     ]
-    setupAttrib prog "vertex" 3 GL_FLOAT GL_FALSE 0 0
+    prog <- program [ ("glsl/shadertoy/vertex.glsl", GL_VERTEX_SHADER)
+                    , ("glsl/shadertoy/fragment.glsl", GL_FRAGMENT_SHADER)
+                    ]
 
-    let vars = [ "iGlobalTime", "iResolution", "iMouse", "iChannel0", "iChannel1", "iDate", "iSampleRate" ]
+    let vars = [ "iGlobalTime"
+               , "iResolution"
+               , "iMouse"
+               , "iChannel0"
+               , "iChannel1"
+               , "iDate"
+               , "iSampleRate"
+               ]
     uniforms <- mapM (locateUniform prog) vars
     mouse <- newIORef (0, 0, 0, 0)
     resolution <- newIORef (0, 0, 400, 400)
-    return GLEnv { uniform = M.fromList $ zip vars uniforms, mouse = mouse, resolution = resolution }
+    return GLEnv { uniform = M.fromList $ zip vars uniforms
+                 , mouse = mouse
+                 , resolution = resolution
+                 , things = [ p ]
+                 }
 
 binder :: W.Window -> GLEnv -> IO ()
 binder win GLEnv{..} = do
@@ -61,7 +72,8 @@ binder win GLEnv{..} = do
     focusCallback _ W.FocusState'Defocused =
         putStrLn "callback: Mouse defocused"
     posCallback _ t l = modifyIORef' resolution (\(_, _, w, h) -> (cast t, cast l, w, h))
-    sizeCallback _ w h = modifyIORef' resolution (\(t, l, _, _) -> (t, l, fromIntegral w, fromIntegral h))
+    sizeCallback _ w h = modifyIORef' resolution
+                                      (\(t, l, _, _) -> (t, l, fromIntegral w, fromIntegral h))
     cursorPosCallback win x y =
         modifyIORef' mouse (\(_, _, cx, cy) -> (cast x, cast y, cx, cy))
     mouseButtonCallback win m ms _
@@ -84,4 +96,4 @@ render GLEnv{..} = do
     glUniform1i (uniform ! "iChannel1") GL_TEXTURE1
 
     glViewport 0 0 w h
-    glDrawElements GL_TRIANGLES 6 GL_UNSIGNED_INT nullPtr
+    mapM_ primitive things

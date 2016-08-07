@@ -12,7 +12,7 @@ main :: IO ()
 main = withGL 400 300 "GL Window" makeEnv binder render
 
 makeEnv :: IO GLEnv
-makeEnv = return $ GLEnv {} -- unused
+makeEnv = return $ GLEnv { } -- unused
 
 binder :: W.Window -> GLEnv -> IO ()
 binder win GLEnv{..} = do
