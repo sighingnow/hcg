@@ -89,12 +89,12 @@ render GLEnv{..} = do
     (x, y) <- readIORef mousep
 
     let z = sqrt $ 1 - x * x - y * y
-        theta = acos $ V3 x y z .*. V3 0 0 1
-        v = V3 x y z .** V3 0 0 1
+        theta = acos $ V3 x y z `dot` V3 0 0 1
+        v = V3 x y z `cross` V3 0 0 1
     let t = translate s'h s'v 0
         s = scale 1 1 1
         r = rotate theta v
-        model = t .* r .* s
+        model = t !*! r !*! s
 
     let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]
     -- let projection = perspect (4 / 3) (pi / 2) 0.001 60

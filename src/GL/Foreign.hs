@@ -7,8 +7,10 @@ module GL.Foreign
     , alloca
     , allocaBytes
     , with
-    , withCString
     , peekCString
+    , peekCStringLen
+    , withCString
+    , withCStringLen
     , nullPtr
     , castPtr
     , intPtrToPtr
@@ -19,7 +21,7 @@ import           Control.Monad.IO.Class ( MonadIO(..), liftIO )
 import           Foreign.Ptr
 import           Foreign.Marshal.Alloc  ( alloca, allocaBytes )
 import           Foreign.Storable
-import           Foreign.C.String       ( peekCString, withCString )
+import           Foreign.C.String       ( peekCString, peekCStringLen, withCString, withCStringLen)
 import           Foreign.Marshal.Utils  ( with )
 
 -- | Allocate memory, apply this function to the pointer and return the result value there.

@@ -7,7 +7,6 @@ import           Data.Maybe                  ( fromJust )
 import           Data.HashMap.Strict         ( (!) )
 import           Data.IORef
 import           Graphics.GL
-import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
 import qualified Data.HashMap.Strict         as M ( fromList )
 
@@ -45,7 +44,7 @@ makeEnv = do
                  , s'h = s'h
                  , s'v = s'v
                  , mousep = mousep
-                 , elements = [ p1, p2, p3 ]
+                 , things = [ p1, p2, p3 ]
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
@@ -91,17 +90,17 @@ render GLEnv{..} = do
     (x, y) <- readIORef mousep
 
     let z = sqrt $ 1 - x * x - y * y
-        theta = acos $ V3 x y z .*. V3 0 0 1
-        v = V3 x y z .** V3 0 0 1
+        theta = acos $ V3 x y z `dot` V3 0 0 1
+        v = V3 x y z `cross` V3 0 0 1
     let t = translate s'h s'v 10
         s = scale 1 1 1
         r = rotate (8 * theta) v -- time
-        model = t .* r .* s
+        model = t !*! r !*! s
 
     let view = lookat [ 0, 0, 0 ] [ 0, 0, -1 ] [ 0, 1, 0 ]
-    let projection = perspect 1.0 (90 / 180 * pi) distance 100 .* translate 0 0 distance
+    let projection = perspect 1.0 (90 / 180 * pi) distance 100 !*! translate 0 0 distance
 
-    mapM_ primitive elements
+    mapM_ primitive things
 
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]
     let setUniformMatrix (name, mat) =

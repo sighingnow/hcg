@@ -7,7 +7,6 @@ import           Data.HashMap.Strict         ( (!) )
 import qualified Data.HashMap.Strict         as M ( fromList )
 import           Data.IORef
 import           Graphics.GL
-import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
 
 import           GL.Foreign
@@ -109,19 +108,18 @@ render GLEnv{..} = do
     (x, y) <- readIORef mousep
 
     let z = sqrt $ 1 - x * x - y * y
-        theta = acos $ V3 x y z .*. V3 0 0 1
-        v = V3 x y z .** V3 0 0 1
+        theta = acos $ V3 x y z `dot` V3 0 0 1
+        v = V3 x y z `cross` V3 0 0 1
     let t = translate s'h s'v 10
         s = scale 1 1 1
         r = rotate (8 * theta) v
-        model = t .* r .* s
+        model = t !*! r !*! s
 
     let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]
-    let projection = perspect 1.0 (90 / 180 * pi) distance 100 .* translate 0 0 distance
+    let projection = perspect 1.0 (90 / 180 * pi) distance 100 !*! translate 0 0 distance
 
     -- draw
-    mapM_ primitive
-          things
+    mapM_ primitive things
 
     -- setup all uniform variables.
     let vars = zip [ "model", "view", "projection" ] [ model, view, projection ]

@@ -9,7 +9,6 @@ import           Data.HashMap.Strict         ( (!) )
 import qualified Data.HashMap.Strict         as M ( fromList )
 import           Data.IORef
 import           Graphics.GL
-import           Graphics.GL.Compatibility43 ()
 import qualified Graphics.UI.GLFW            as W
 
 import           GL.Foreign

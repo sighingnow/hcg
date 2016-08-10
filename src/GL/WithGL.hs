@@ -1,5 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module GL.WithGL
     ( cast
     , withGL
@@ -7,12 +5,12 @@ module GL.WithGL
     ) where
 
 import           Control.Concurrent ( threadDelay )
-import           Control.Monad      ( unless, when )
+import           Control.Monad      ( when, unless )
 import           Data.Bits          ( (.|.) )
-
 import           Graphics.GL
 import qualified Graphics.UI.GLFW   as W
 
+import           GL.Math.Tensor     (V2 (..))
 import           GL.GLEnv
 
 -- | Casting between haskell floating type and OpenGL floating type.
@@ -50,7 +48,7 @@ withGL w h title env binder render =
             W.terminate >> putStrLn "Normal termination."
 
 mainLoop :: W.Window -> (GLEnv -> IO ()) -> GLEnv -> IO ()
-mainLoop win render env@GLEnv{..} = do
+mainLoop win render env = do
     glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
     render env
 
@@ -59,6 +57,6 @@ mainLoop win render env@GLEnv{..} = do
         glFlush >>
         W.pollEvents
 
-    threadDelay 10000
+    threadDelay 20000
     closed <- W.windowShouldClose win
     unless closed (mainLoop win render env)

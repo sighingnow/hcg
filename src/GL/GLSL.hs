@@ -7,9 +7,6 @@ import           Control.Monad            ( when )
 import           Control.Monad.Trans.Cont
 import           Control.Monad.IO.Class   ( liftIO )
 import           Data.Maybe               ( fromJust )
-import qualified Data.Text                as T
-import qualified Data.Text.Foreign        as T
-import qualified Data.Text.IO             as T ( readFile )
 
 import           Graphics.GL
 
@@ -18,7 +15,7 @@ import           GL.Foreign
 program :: [(FilePath, GLenum)] -> IO GLuint
 program res = do
     prog <- glCreateProgram
-    shaders <- mapM (\(fp, st) -> T.readFile fp >>= fmap fromJust . makeShader st) res
+    shaders <- mapM (\(fp, st) -> readFile fp >>= fmap fromJust . makeShader st) res
     mapM_ (glAttachShader prog) shaders >> glLinkProgram prog
     status <- peekFrom $ glGetProgramiv prog GL_LINK_STATUS
     len <- peekFrom $ glGetProgramiv prog GL_INFO_LOG_LENGTH
@@ -29,11 +26,11 @@ program res = do
                 putStrLn =<< peekCString buf
     mapM_ glDeleteShader shaders >> glUseProgram prog >> return prog
 
-makeShader :: GLenum -> T.Text -> IO (Maybe GLuint)
+makeShader :: GLenum -> String -> IO (Maybe GLuint)
 makeShader t code = do
     shader <- glCreateShader t
     evalContT $ do
-        (s, l) <- ContT (T.withCStringLen code)
+        (s, l) <- ContT (withCStringLen code)
         sp <- ContT (with s)
         lp <- ContT (with . fromIntegral $ l)
         liftIO $ glShaderSource shader 1 sp lp
