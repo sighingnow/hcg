@@ -46,10 +46,10 @@ makeEnv = do
     uniforms <- mapM (locateUniform prog) vars
     mouse <- newIORef (0, 0, 0, 0)
     resolution <- newIORef (0, 0, 400, 400)
-    return GLEnv { uniform = M.fromList $ zip vars uniforms
+    return GLEnv { things = [ p ]
+                 , uniform = M.fromList $ zip vars uniforms
                  , mouse = mouse
                  , resolution = resolution
-                 , things = [ p ]
                  }
 
 binder :: W.Window -> GLEnv -> IO ()

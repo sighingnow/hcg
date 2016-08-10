@@ -57,14 +57,14 @@ makeEnv = do
     s'h <- newIORef 0
     s'v <- newIORef 0
     distance <- newIORef 1
-    mousep <- newIORef (0, 0)
-    return GLEnv { ebo' = 12
-                 , distance = distance
+    mouse <- newIORef (0, 0, 0, 0)
+    return GLEnv { things = [p]
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
-                 , mousep = mousep
-                 , things = [ p ]
+                 , distance = distance
+                 , sensitive = 2
+                 , mouse = mouse
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
@@ -92,11 +92,20 @@ binder win GLEnv{..} = do
             W.Key'Right -> modifyIORef s'h (+ 0.1)
             _ -> putStrLn "callback: unhandled key event, " >> print key
     cursorPosCallback _ x y = do
+        (x0, y0, cx0, cy0) <- readIORef mouse
+        (_, _, w, h) <- readIORef resolution
+        let x' = cast x
+            y' = cast y
+            w' = fromIntegral w
+            h' = fromIntegral h
+        writeIORef mouse (x', y', cx0, cy0)
         mb <- W.getMouseButton win W.MouseButton'1
-        when (mb == W.MouseButtonState'Pressed) $ writeIORef mousep (x', y')
-      where
-        x' = fromRational . toRational $ (x - 200) / 200
-        y' = fromRational . toRational $ (y - 200) / 200
+        when (mb == W.MouseButtonState'Pressed) $ do
+            let v1 = normalize (V3 (x0-w'/2) (y0-h'/2) ((w'+h')/4))
+                v2 = normalize (V3 (x'-w'/2) (y'-h'/2) ((w'+h')/4))
+                theta = acos (v1 `dot` v2)
+                v = v1 `cross` v2
+            modifyIORef' rotation (rotate (theta * sensitive) v !*!)
     mouseButtonCallback _ m ms _ =
         putStrLn "callback: mouse, " >> print m >> print ms
 
@@ -105,14 +114,11 @@ render GLEnv{..} = do
     s'h <- readIORef s'h
     s'v <- readIORef s'v
     distance <- readIORef distance
-    (x, y) <- readIORef mousep
+    (x, y, _, _) <- readIORef mouse
 
-    let z = sqrt $ 1 - x * x - y * y
-        theta = acos $ V3 x y z `dot` V3 0 0 1
-        v = V3 x y z `cross` V3 0 0 1
+    r <- readIORef rotation
     let t = translate s'h s'v 10
         s = scale 1 1 1
-        r = rotate (8 * theta) v
         model = t !*! r !*! s
 
     let view = lookat [ 0, 0, 0 ] [ 0, 0, 1 ] [ 0, -1, 0 ]

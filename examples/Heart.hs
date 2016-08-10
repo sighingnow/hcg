@@ -39,12 +39,11 @@ makeEnv = do
     s'v <- newIORef 0
     distance <- newIORef 1
     mousep <- newIORef (0, 0)
-    return GLEnv { distance = distance
+    return GLEnv { things = [ p1, p2, p3 ]
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
-                 , mousep = mousep
-                 , things = [ p1, p2, p3 ]
+                 , distance = distance
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
@@ -73,7 +72,8 @@ binder win GLEnv{..} = do
             _ -> putStrLn "callback: unhandled key event, " >> print key
     cursorPosCallback _ x y = do
         mb <- W.getMouseButton win W.MouseButton'1
-        when (mb == W.MouseButtonState'Pressed) $ writeIORef mousep (x', y')
+        when (mb == W.MouseButtonState'Pressed) $
+            modifyIORef' mouse $ \(_, _, cx, cy) -> (x', y', cx, cy)
       where
         x' = fromRational . toRational $ (x - 200) / 200
         y' = fromRational . toRational $ (y - 200) / 200
@@ -87,7 +87,7 @@ render GLEnv{..} = do
     s'h <- readIORef s'h
     s'v <- readIORef s'v
     distance <- readIORef distance
-    (x, y) <- readIORef mousep
+    (x, y, _, _) <- readIORef mouse
 
     let z = sqrt $ 1 - x * x - y * y
         theta = acos $ V3 x y z `dot` V3 0 0 1

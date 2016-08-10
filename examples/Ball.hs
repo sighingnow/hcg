@@ -33,7 +33,7 @@ makeEnv = do
 
     let vars = [ "model", "view", "projection" ]
     uniforms <- mapM (locateUniform prog) vars
-    return GLEnv { ebo' = 6, uniform = M.fromList $ zip vars uniforms, things = [ p1, p2 ] }
+    return GLEnv { things = [ p1, p2 ], uniform = M.fromList $ zip vars uniforms }
 
 binder :: W.Window -> GLEnv -> IO ()
 binder _ _ = return ()

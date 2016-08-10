@@ -10,7 +10,6 @@ import           Data.Bits          ( (.|.) )
 import           Graphics.GL
 import qualified Graphics.UI.GLFW   as W
 
-import           GL.Math.Tensor     (V2 (..))
 import           GL.GLEnv
 
 -- | Casting between haskell floating type and OpenGL floating type.
