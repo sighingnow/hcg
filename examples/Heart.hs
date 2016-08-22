@@ -38,12 +38,13 @@ makeEnv = do
     s'h <- newIORef 0
     s'v <- newIORef 0
     distance <- newIORef 1
-    mousep <- newIORef (0, 0)
+    mouse <- newIORef (0, 0, 0, 0)
     return GLEnv { things = [ p1, p2, p3 ]
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
                  , distance = distance
+                 , mouse = mouse
                  }
 
 binder :: W.Window -> GLEnv -> IO ()

@@ -58,13 +58,17 @@ makeEnv = do
     s'v <- newIORef 0
     distance <- newIORef 1
     mouse <- newIORef (0, 0, 0, 0)
+    resolution <- newIORef (0, 0, 400, 400)
+    rotation <- newIORef (identity :: M44 GLfloat)
     return GLEnv { things = [p]
                  , uniform = M.fromList $ zip vars uniforms
                  , s'h = s'h
                  , s'v = s'v
                  , distance = distance
+                 , rotation = rotation
                  , sensitive = 2
                  , mouse = mouse
+                 , resolution = resolution
                  }
 
 binder :: W.Window -> GLEnv -> IO ()
