@@ -29,8 +29,8 @@ makeEnv = do
                         [ 0, 1, 2, 0, 2, 3 ]
                         (0, 6)
 
-    prog <- program [ ("glsl/heart/vertex.glsl", GL_VERTEX_SHADER)
-                    , ("glsl/heart/fragment.glsl", GL_FRAGMENT_SHADER)
+    prog <- program [ ("glsl/heart/main.vert", GL_VERTEX_SHADER)
+                    , ("glsl/heart/main.frag", GL_FRAGMENT_SHADER)
                     ]
 
     let vars = [ "model", "view", "projection" ]

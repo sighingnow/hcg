@@ -31,8 +31,8 @@ makeEnv = do
     createTex "image/tex00.jpg" GL_TEXTURE0
     createTex "image/tex01.jpg" GL_TEXTURE1
 
-    prog <- program [ ("glsl/shadertoy/vertex.glsl", GL_VERTEX_SHADER)
-                    , ("glsl/shadertoy/fragment.glsl", GL_FRAGMENT_SHADER)
+    prog <- program [ ("glsl/shadertoy/main.vert", GL_VERTEX_SHADER)
+                    , ("glsl/shadertoy/main.frag", GL_FRAGMENT_SHADER)
                     ]
 
     let vars = [ "iGlobalTime"

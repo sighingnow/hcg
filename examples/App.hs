@@ -48,8 +48,8 @@ makeEnv = do
 
     tex <- createTex "image/texture.png" GL_TEXTURE0
 
-    prog <- program [ ("glsl/app/vertex.glsl", GL_VERTEX_SHADER)
-                    , ("glsl/app/fragment.glsl", GL_FRAGMENT_SHADER)
+    prog <- program [ ("glsl/app/main.vert", GL_VERTEX_SHADER)
+                    , ("glsl/app/main.frag", GL_FRAGMENT_SHADER)
                     ]
 
     let vars = [ "model", "view", "projection", "sampler" ]

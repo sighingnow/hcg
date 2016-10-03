@@ -28,8 +28,8 @@ makeEnv = do
                         (0, 6)
     p2 <- createArray GL_TRIANGLE_STRIP ball (0, 40000)
 
-    prog <- program [ ("glsl/plot/vertex.glsl", GL_VERTEX_SHADER)
-                    , ("glsl/plot/fragment.glsl", GL_FRAGMENT_SHADER)
+    prog <- program [ ("glsl/plot/main.vert", GL_VERTEX_SHADER)
+                    , ("glsl/plot/main.frag", GL_FRAGMENT_SHADER)
                     ]
 
     let vars = [ "model", "view", "projection" ]
